@@ -1,5 +1,16 @@
 export const initSlideController = (options) => {
-    const { scrollDelay = 800, transitionSpeed = 1000 } = options;
+    const {
+        scrollDelay = 800, // Задержка между пролистываниями, мс
+        transitionSpeed = 1000, // Скорость перехода между слайдами, мс
+        minWidth = 0, // Минимальная ширина окна для активации библиотеки
+    } = options;
+
+    let isEnabled = true; // Состояние активности библиотеки
+
+    // Функция для проверки разрешения экрана
+    const checkWindowSize = () => {
+        isEnabled = window.innerWidth >= minWidth;
+    };
 
     document.addEventListener('DOMContentLoaded', () => {
         const sections = document.querySelectorAll('.section');
@@ -7,40 +18,32 @@ export const initSlideController = (options) => {
         const footer = document.querySelector('.footer');
         const totalSections = sections.length + 1;
         let isScrollingAllowed = true;
-        let scrollDelay = 500; // Задержка между пролистываниями, мс
-        let transitionSpeed = 1000; // Скорость перехода между слайдами, мс
+
+        // Проверяем размер окна при загрузке
+        checkWindowSize();
+
+        const easeInOutQuad = (t, b, c, d) => {
+            t /= d / 2;
+            if (t < 1) return c / 2 * t * t + b;
+            t--;
+            return -c / 2 * (t * (t - 2) - 1) + b;
+        };
 
         const scrollToSection = (sectionIndex) => {
-            if (!isScrollingAllowed) return;
+            if (!isScrollingAllowed || !isEnabled) return;
             isScrollingAllowed = false;
-
             setTimeout(() => isScrollingAllowed = true, scrollDelay);
 
             let targetPosition;
-
             if (sectionIndex < sections.length) {
-                // Прокрутка к секции
                 const section = sections[sectionIndex];
-                const sectionHeight = section.offsetHeight;
-                const windowHeight = window.innerHeight;
-
-                if (sectionHeight < windowHeight) {
-                    // Выравниваем по центру, если высота секции меньше высоты окна
-                    const sectionTopPosition = section.offsetTop;
-                    const offset = (windowHeight - sectionHeight) / 2;
-                    targetPosition = sectionTopPosition - offset;
-                } else {
-                    // Прокрутка, чтобы верх секции совпал с верхом экрана
-                    targetPosition = section.offsetTop;
-                }
+                targetPosition = section.offsetTop;
             } else {
-                // Прокрутка к футеру
                 targetPosition = footer.offsetTop;
             }
 
             performScroll(targetPosition);
         };
-
 
         const performScroll = (targetPosition) => {
             const startPosition = window.pageYOffset;
@@ -53,22 +56,63 @@ export const initSlideController = (options) => {
                 const nextScrollPosition = easeInOutQuad(timeElapsed, startPosition, distance, transitionSpeed);
 
                 window.scrollTo(0, nextScrollPosition);
-
                 if (timeElapsed < transitionSpeed) requestAnimationFrame(animation);
             };
 
             requestAnimationFrame(animation);
         };
 
-        const easeInOutQuad = (t, b, c, d) => {
-            t /= d / 2;
-            if (t < 1) return c / 2 * t * t + b;
-            t--;
-            return -c / 2 * (t * (t - 2) - 1) + b;
+        const debounce = (func, delay) => {
+            let inDebounce;
+            return function () {
+                const context = this;
+                const args = arguments;
+                clearTimeout(inDebounce);
+                inDebounce = setTimeout(() => func.apply(context, args), delay);
+            };
         };
 
-        document.addEventListener('wheel', (e) => {
-            if (!isScrollingAllowed) return;
+        let touchStartY = 0;
+        let touchEndY = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartY = e.touches[0].clientY;
+        }, false);
+
+        document.addEventListener('touchend', (e) => {
+            touchEndY = e.changedTouches[0].clientY;
+            handleTouchMove();
+        }, false);
+
+        const handleTouchMove = () => {
+            if (!isScrollingAllowed || !isEnabled) return;
+
+            if (touchEndY < touchStartY && currentSection < totalSections - 1) {
+                currentSection++;
+            } else if (touchEndY > touchStartY && currentSection > 0) {
+                currentSection--;
+            }
+            scrollToSection(currentSection);
+        };
+
+        document.addEventListener('keydown', (e) => {
+            if (!isScrollingAllowed || !isEnabled) return;
+
+            if (e.key === 'ArrowUp' && currentSection > 0) {
+                currentSection--;
+                scrollToSection(currentSection);
+            } else if (e.key === 'ArrowDown' && currentSection < totalSections - 1) {
+                currentSection++;
+                scrollToSection(currentSection);
+            }
+        }, false);
+
+        // Обработчики изменения размеров окна и ориентации
+        window.addEventListener('resize', debounce(checkWindowSize, 100), false);
+        window.addEventListener('orientationchange', debounce(checkWindowSize, 100), false);
+
+        const handleScroll = debounce((e) => {
+            if (!isScrollingAllowed || !isEnabled) return;
 
             if (e.deltaY < 0 && currentSection > 0) {
                 currentSection--;
@@ -76,16 +120,8 @@ export const initSlideController = (options) => {
                 currentSection++;
             }
             scrollToSection(currentSection);
-        }, { passive: false });
+        }, 50);
 
-        // Функция для настройки скорости пролистывания
-        function setScrollDelay(newDelay) {
-            scrollDelay = newDelay;
-        }
-
-        // Функция для настройки скорости перехода между слайдами
-        function setTransitionSpeed(newSpeed) {
-            transitionSpeed = newSpeed;
-        }
+        document.addEventListener('wheel', handleScroll, {passive: false});
     });
 };
