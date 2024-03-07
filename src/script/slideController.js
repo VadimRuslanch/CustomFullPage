@@ -1,26 +1,15 @@
 export const initSlideController = (options) => {
     const {
-        scrollDelay = 800, // Задержка между пролистываниями, мс
+        scrollDelay = 0, // Задержка между пролистываниями, мс
         transitionSpeed = 1000, // Скорость перехода между слайдами, мс
-        minWidth = 0, // Минимальная ширина окна для активации библиотеки
     } = options;
-
-    let isEnabled = true; // Состояние активности библиотеки
-
-    // Функция для проверки разрешения экрана
-    const checkWindowSize = () => {
-        isEnabled = window.innerWidth >= minWidth;
-    };
 
     document.addEventListener('DOMContentLoaded', () => {
         const sections = document.querySelectorAll('.section');
-        let currentSection = 0;
         const footer = document.querySelector('.footer');
         const totalSections = sections.length + 1;
+        let currentSection = 0;
         let isScrollingAllowed = true;
-
-        // Проверяем размер окна при загрузке
-        checkWindowSize();
 
         const easeInOutQuad = (t, b, c, d) => {
             t /= d / 2;
@@ -30,7 +19,7 @@ export const initSlideController = (options) => {
         };
 
         const scrollToSection = (sectionIndex) => {
-            if (!isScrollingAllowed || !isEnabled) return;
+            if (!isScrollingAllowed) return;
             isScrollingAllowed = false;
             setTimeout(() => isScrollingAllowed = true, scrollDelay);
 
@@ -85,7 +74,7 @@ export const initSlideController = (options) => {
         }, false);
 
         const handleTouchMove = () => {
-            if (!isScrollingAllowed || !isEnabled) return;
+            if (!isScrollingAllowed) return;
 
             if (touchEndY < touchStartY && currentSection < totalSections - 1) {
                 currentSection++;
@@ -96,7 +85,7 @@ export const initSlideController = (options) => {
         };
 
         document.addEventListener('keydown', (e) => {
-            if (!isScrollingAllowed || !isEnabled) return;
+            if (!isScrollingAllowed) return;
 
             if (e.key === 'ArrowUp' && currentSection > 0) {
                 currentSection--;
@@ -107,13 +96,11 @@ export const initSlideController = (options) => {
             }
         }, false);
 
-        // Обработчики изменения размеров окна и ориентации
-        window.addEventListener('resize', debounce(checkWindowSize, 100), false);
-        window.addEventListener('orientationchange', debounce(checkWindowSize, 100), false);
-
         const handleScroll = debounce((e) => {
-            if (!isScrollingAllowed || !isEnabled) return;
-
+            console.log(e)
+            console.log(isScrollingAllowed);
+            if (!isScrollingAllowed) return;
+            console.log(e.deltaY);
             if (e.deltaY < 0 && currentSection > 0) {
                 currentSection--;
             } else if (e.deltaY > 0 && currentSection < totalSections - 1) {
